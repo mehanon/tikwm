@@ -12,10 +12,12 @@ import (
 )
 
 func main() {
-	cmd := flag.String("cmd", "video", "what to do (video | profile)")
+	time.Now().Add(-time.Hour * 24 * 30)
+
+	cmd := flag.String("cmd", "video", "what to do (video | profile | info)")
 	until := flag.String("until", "1970-01-01 00:00:00", "dont download videos earlier than")
-	sd := flag.Bool("sd", false, "don't request HD sources of videos")
-	folder := flag.String("folder", "./downloads", "folder to save files")
+	sd := flag.Bool("sd", false, "don't request HD sources of videos (less requests => notably faster)")
+	folder := flag.String("folder", "./", "folder to save files")
 	json_ := flag.Bool("json", false, "print info as json, dont download")
 	flag.Parse()
 
@@ -85,6 +87,18 @@ func main() {
 			if *json_ {
 				fmt.Printf("[%s]", strings.Join(jsonRet, ",\n"))
 			}
+
+		case *cmd == "info":
+			vid, err := api.GetUserDetail(url)
+			if err != nil {
+				log.Fatalf("%s: %s", url, err.Error())
+			}
+
+			buffer, err := json.MarshalIndent(vid, "", "\t")
+			if err != nil {
+				log.Fatalf("%s: %s", url, err.Error())
+			}
+			print(string(buffer))
 		}
 	}
 }

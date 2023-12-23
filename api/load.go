@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"time"
 )
 
@@ -52,9 +53,13 @@ func (post Post) Download(directory ...string) (files []string, err error) {
 
 	files = []string{}
 	for i, url := range urls {
-		fileFormat := fmt.Sprintf("%s_%s_%d_*%s", post.Author.UniqueId, time.Unix(post.CreateTime, 0).Format(time.DateOnly), i, fileType)
+		fileFormat := fmt.Sprintf("%s_%s_%s", post.Author.UniqueId, time.Unix(post.CreateTime, 0).Format(time.DateOnly), post.Id)
+		if len(urls) > 1 {
+			fileFormat += fmt.Sprintf("_%d", i+1)
+		}
+		fileFormat += fileType
 
-		tmp, err := os.CreateTemp(dir, fileFormat)
+		tmp, err := os.Create(path.Join(dir, fileFormat))
 		if err != nil {
 			return urls, err
 		}

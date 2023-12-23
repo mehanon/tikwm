@@ -63,7 +63,7 @@ func RawParsed[T any](method string, query map[string]string) (*T, error) {
 		if buf, err := json.Marshal(query); err == nil {
 			queryStr = string(buf)
 		}
-		return nil, fmt.Errorf("tikwm error: %s (%d) [query: %s]", resp.Msg, resp.Code, queryStr)
+		return nil, fmt.Errorf("tikwm error: %s (%d) [%s, query: %s]", resp.Msg, resp.Code, method, queryStr)
 	}
 
 	return resp.Data, nil
