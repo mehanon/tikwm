@@ -1,3 +1,3 @@
-module github.com/tikwm/tg
+module github.com/mehanon/tg
 
 go 1.21
