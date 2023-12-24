@@ -20,7 +20,9 @@ func (post Post) IsVideo() bool {
 func (post Post) ContentUrls() []string {
 	urls := post.Images
 	if post.IsVideo() {
-		if post.Wmplay == "" {
+		if post.Hdplay != "" {
+			urls = []string{post.Hdplay}
+		} else if post.Wmplay != "" {
 			urls = []string{post.Wmplay}
 		} else {
 			urls = []string{post.Play}

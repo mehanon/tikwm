@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/mehanon/tikwm/api"
 	"log"
 	"os"
 	"strings"
-	"tikwm/api"
 	"time"
 )
 

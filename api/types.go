@@ -10,8 +10,10 @@ type Post struct {
 	Duration    int    `json:"duration"`
 	Play        string `json:"play"`
 	Wmplay      string `json:"wmplay"`
+	Hdplay      string `json:"hdplay"`
 	Size        int    `json:"size"`
 	WmSize      int    `json:"wm_size"`
+	HdSize      int    `json:"hd_size"`
 	Music       string `json:"music"`
 	MusicInfo   struct {
 		Id       string `json:"id"`
