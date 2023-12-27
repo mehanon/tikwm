@@ -93,10 +93,9 @@ func (post Post) Download(directory ...string) (files []string, err error) {
 		if resp.Err() != nil {
 			return files, err
 		}
+
 		// ensuring no silent 429
-		if i+1 == len(urls) {
-			time.Sleep(TimeoutDownload)
-		}
+		time.Sleep(TimeoutDownload)
 	}
 
 	return
