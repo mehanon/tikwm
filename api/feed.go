@@ -1,6 +1,9 @@
 package api
 
-import "log"
+import (
+	"fmt"
+	"log"
+)
 
 type Predicate func(vid *Post) bool
 
@@ -43,6 +46,7 @@ func GetUserFeedUntilVerbose(uniqueID string, hd bool, pred func(vid *Post) bool
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
+				onError(fmt.Errorf("goroutine panicked: %v", r))
 			}
 		}()
 
