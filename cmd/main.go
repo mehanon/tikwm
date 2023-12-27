@@ -60,7 +60,7 @@ func main() {
 				log.Fatalf("%s: %s", url, err.Error())
 			}
 
-			vidChan, err := api.GetUserFeedUntilVerbose(url, !*sd, func(vid *api.Post) bool {
+			vidChan, expectedCount, err := api.GetUserFeedUntilVerbose(url, !*sd, func(vid *api.Post) bool {
 				return time.Unix(vid.CreateTime, 0).Before(until)
 			}, func(err error) {
 				if err != nil {
@@ -69,6 +69,7 @@ func main() {
 			})
 
 			jsonRet := []string{}
+			i := 0
 			for vid := range vidChan {
 				if *json_ {
 					buffer, err := json.MarshalIndent(vid, "", "\t")
@@ -83,7 +84,8 @@ func main() {
 				if err != nil {
 					log.Fatalf("%s: %s", url, err.Error())
 				}
-				log.Printf("%s: %s", url, filename)
+				i += 1
+				log.Printf("%s: [%d/%d]\t %s", url, i, expectedCount, filename)
 			}
 
 			if *json_ {

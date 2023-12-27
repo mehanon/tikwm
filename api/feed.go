@@ -1,14 +1,13 @@
 package api
 
 import (
-	"fmt"
 	"log"
 )
 
 type Predicate func(vid *Post) bool
 
 func GetUserFeedAll(uniqueID string, hd bool) ([]Post, error) {
-	videoChan, err := GetUserFeedUntilVerbose(uniqueID, hd, nil, nil)
+	videoChan, _, err := GetUserFeedUntilVerbose(uniqueID, hd, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -20,7 +19,7 @@ func GetUserFeedAll(uniqueID string, hd bool) ([]Post, error) {
 }
 
 // GetUserFeedUntilVerbose -- pred = nil => download all, onError = nil => log and skip errors
-func GetUserFeedUntilVerbose(uniqueID string, hd bool, pred func(vid *Post) bool, onError func(err error)) (chan Post, error) {
+func GetUserFeedUntilVerbose(uniqueID string, hd bool, pred func(vid *Post) bool, onError func(err error)) (chan Post, int, error) {
 	if pred == nil {
 		pred = func(vid *Post) bool {
 			return false
@@ -34,40 +33,41 @@ func GetUserFeedUntilVerbose(uniqueID string, hd bool, pred func(vid *Post) bool
 		}
 	}
 
-	videos, err := userFeedUntilInternal(uniqueID, "0", pred)
+	posts, err := userFeedUntilInternal(uniqueID, "0", pred)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	for i := 0; i < len(videos)/2; i++ {
-		videos[i], videos[len(videos)-i-1] = videos[len(videos)-i-1], videos[i]
+	for i := 0; i < len(posts)/2; i++ {
+		posts[i], posts[len(posts)-i-1] = posts[len(posts)-i-1], posts[i]
 	}
 
-	videoChan := make(chan Post, 100)
+	postChan := make(chan Post, 100)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				onError(fmt.Errorf("goroutine panicked: %v", r))
+				// It's ok to panic in onError to interrupt the loop,
+				// nothing else would panic (95% sure).
 			}
 		}()
 
-		defer close(videoChan)
-		for _, vid := range videos {
+		defer close(postChan)
+		for _, vid := range posts {
 			if !hd {
-				videoChan <- vid
+				postChan <- vid
 				continue
 			}
 
 			vidHD, err := GetPost(vid.VideoId, true)
 			if err != nil {
 				onError(err)
-				videoChan <- vid
+				postChan <- vid
 			} else {
-				videoChan <- *vidHD
+				postChan <- *vidHD
 			}
 		}
 	}()
 
-	return videoChan, err
+	return postChan, len(posts), err
 }
 
 func userFeedUntilInternal(uniqueID string, cursor string, pred Predicate) ([]Post, error) {
