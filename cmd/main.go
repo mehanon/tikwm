@@ -19,8 +19,10 @@ func main() {
 	sd := flag.Bool("sd", false, "don't request HD sources of videos (less requests => notably faster)")
 	folder := flag.String("folder", "./", "folder to save files")
 	json_ := flag.Bool("json", false, "print info as json, dont download")
+	debug := flag.Bool("debug", false, "log debug info")
 	flag.Parse()
 
+	api.Debug = *debug
 	urls := flag.Args()
 	if len(urls) == 0 {
 		println("no arguments were passed, use -help to get help")

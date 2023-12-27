@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"sync"
@@ -14,6 +15,7 @@ var (
 	URL              string        = "https://tikwm.com/api"
 	Timeout          time.Duration = time.Second
 	MaxUserFeedCount int           = 34
+	Debug                          = false
 	requestSync      *sync.Mutex   = &sync.Mutex{}
 )
 
@@ -40,7 +42,16 @@ func Raw(method string, query map[string]string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	return io.ReadAll(resp.Body)
+	buffer, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if Debug {
+		log.Print(string(buffer))
+	}
+
+	return buffer, nil
 }
 
 func RawParsed[T any](method string, query map[string]string) (*T, error) {
