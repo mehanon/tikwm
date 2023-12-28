@@ -1,4 +1,4 @@
-package api
+package tt
 
 import (
 	"fmt"
@@ -6,11 +6,12 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"sync"
 	"time"
 )
 
 var (
-	DefaultClient = &grab.Client{
+	DefaultDownloadClient = &grab.Client{
 		HTTPClient: &http.Client{
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
@@ -20,7 +21,9 @@ var (
 		// UserAgent from https://explore.whatismybrowser.com/useragents/parse/505617920-tiktok-android-webkit
 		UserAgent: "Mozilla/5.0 (Linux; Android 13; 2109119DG Build/TKQ1.220829.002; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/119.0.6045.193 Mobile Safari/537.36 trill_320403 JsSdk/1.0 NetType/WIFI Channel/googleplay AppName/trill app_version/32.4.3 ByteLocale/en ByteFullLocale/en Region/MY AppId/1180 Spark/1.4.6.3-bugfix AppVersion/32.4.3 BytedanceWebview/d8a21c6",
 	}
-	TimeoutDownload = time.Second
+	TimeoutDownload = time.Millisecond * 100
+	FilenameFormat  = formatFilename
+	downloadSync    = &sync.Mutex{}
 )
 
 func (post Post) IsAlbum() bool {
@@ -36,10 +39,10 @@ func (post Post) ContentUrls() []string {
 	if post.IsVideo() {
 		if post.Hdplay != "" {
 			urls = []string{post.Hdplay}
-		} else if post.Wmplay != "" {
-			urls = []string{post.Wmplay}
-		} else {
+		} else if post.Play != "" {
 			urls = []string{post.Play}
+		} else {
+			urls = []string{post.Wmplay}
 		}
 	}
 	return urls
@@ -54,28 +57,20 @@ func (post Post) DownloadVideo(directory ...string) (file string, err error) {
 }
 
 func (post Post) Download(directory ...string) (files []string, err error) {
+	if TimeoutDownload != 0 {
+		downloadSync.Lock()
+		defer downloadSync.Unlock()
+	}
+
 	urls := post.ContentUrls()
 	dir := ""
 	if len(directory) != 0 {
 		dir = directory[0]
 	}
 
-	fileType := ""
-	if post.IsAlbum() {
-		fileType = ".jpg"
-	} else {
-		fileType = ".mp4"
-	}
-
 	files = []string{}
 	for i, url := range urls {
-		fileFormat := fmt.Sprintf("%s_%s_%s", post.Author.UniqueId, time.Unix(post.CreateTime, 0).Format(time.DateOnly), post.Id)
-		if len(urls) > 1 {
-			fileFormat += fmt.Sprintf("_%d", i+1)
-		}
-		fileFormat += fileType
-
-		tmp, err := os.Create(path.Join(dir, fileFormat))
+		tmp, err := os.Create(path.Join(dir, FilenameFormat(&post, i)))
 		if err != nil {
 			return files, err
 		}
@@ -88,7 +83,7 @@ func (post Post) Download(directory ...string) (files []string, err error) {
 		if err != nil {
 			return files, err
 		}
-		resp := DefaultClient.Do(req)
+		resp := DefaultDownloadClient.Do(req)
 		<-resp.Done
 		if resp.Err() != nil {
 			return files, err
@@ -99,4 +94,12 @@ func (post Post) Download(directory ...string) (files []string, err error) {
 	}
 
 	return
+}
+
+func formatFilename(post *Post, i int) string {
+	filename := fmt.Sprintf("%s_%s_%s", post.Author.UniqueId, time.Unix(post.CreateTime, 0).Format(time.DateOnly), post.ID())
+	if post.IsVideo() {
+		return filename + ".mp4"
+	}
+	return fmt.Sprintf("%s_%d.jpg", filename, i+1)
 }

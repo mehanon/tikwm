@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/mehanon/tikwm/api"
+	"github.com/mehanon/tikwm/tt"
 	"log"
 	"os"
 	"strings"
@@ -12,29 +12,86 @@ import (
 )
 
 func main() {
-	time.Now().Add(-time.Hour * 24 * 30)
-
-	cmd := flag.String("cmd", "video", "what to do (video | profile | info)")
-	until := flag.String("until", "1970-01-01 00:00:00", "dont download videos earlier than")
+	flag.Usage = func() {
+		_, _ = fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [-profile | -info] [args...] <urls | usernames | ids>\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+	cmdProfile := flag.Bool("profile", false, "download/scan profiles")
+	cmdInfo := flag.Bool("info", false, "print info about profiles")
+	until := flag.String("until", "1970-01-01 00:00:00", "don't download videos earlier than")
 	sd := flag.Bool("sd", false, "don't request HD sources of videos (less requests => notably faster)")
-	folder := flag.String("folder", "./", "folder to save files")
-	json_ := flag.Bool("json", false, "print info as json, dont download")
+	directory := flag.String("dir", "./", "directory to save files")
+	json_ := flag.Bool("json", false, "print info as json, don't download")
 	debug := flag.Bool("debug", false, "log debug info")
+	quiet_ := flag.Bool("quiet", false, "quiet")
 	flag.Parse()
 
-	api.Debug = *debug
+	tt.Debug = *debug
 	urls := flag.Args()
 	if len(urls) == 0 {
 		println("no arguments were passed, use -help to get help")
 		os.Exit(0)
 	}
+	quiet = *quiet_
 
 	for _, url := range urls {
-		ensureDir(*folder)
+		ensureDir(*directory)
 
 		switch {
-		case *cmd == "video":
-			vid, err := api.GetPost(url, !*sd)
+		case *cmdProfile:
+			until, err := time.Parse(time.DateTime, *until)
+			if err != nil {
+				log.Fatalf("%s: %s", url, err.Error())
+			}
+
+			postChan, expectedCount, err := tt.GetUserFeed(url, &tt.FeedOpt{
+				While: tt.WhileAfter(until),
+				OnError: func(err error) {
+					if err != nil {
+						log.Fatalf("%s: %s", url, err.Error())
+					}
+				},
+				SD: *sd,
+			})
+
+			jsonRet := []string{}
+			i := 0
+			for vid := range postChan {
+				if *json_ {
+					buffer, err := json.MarshalIndent(vid, "", "\t")
+					if err != nil {
+						log.Fatalf("%s: %s", url, err.Error())
+					}
+					jsonRet = append(jsonRet, string(buffer))
+					continue
+				}
+
+				filename, err := vid.Download(*directory)
+				if err != nil {
+					log.Fatalf("%s: %s", url, err.Error())
+				}
+				i += 1
+				printf("%s: [%d/%d]\t %s", url, i, expectedCount, filename)
+			}
+
+			if *json_ {
+				fmt.Printf("[%s]", strings.Join(jsonRet, ",\n"))
+			}
+
+		case *cmdInfo:
+			vid, err := tt.GetUserDetail(url)
+			if err != nil {
+				log.Fatalf("%s: %s", url, err.Error())
+			}
+
+			buffer, err := json.MarshalIndent(vid, "", "\t")
+			if err != nil {
+				log.Fatalf("%s: %s", url, err.Error())
+			}
+			print(string(buffer))
+
+		default:
+			vid, err := tt.GetPost(url, !*sd)
 			if err != nil {
 				log.Fatalf("%s: %s", url, err.Error())
 			}
@@ -48,63 +105,23 @@ func main() {
 				continue
 			}
 
-			filename, err := vid.Download(*folder)
+			filename, err := vid.Download(*directory)
 			if err != nil {
 				log.Fatalf("%s: %s", url, err.Error())
 			}
-			log.Printf("%s: %s", url, filename)
-
-		case *cmd == "profile":
-			until, err := time.Parse(time.DateTime, *until)
-			if err != nil {
-				log.Fatalf("%s: %s", url, err.Error())
-			}
-
-			vidChan, expectedCount, err := api.GetUserFeedUntilVerbose(url, !*sd, func(vid *api.Post) bool {
-				return time.Unix(vid.CreateTime, 0).Before(until)
-			}, func(err error) {
-				if err != nil {
-					log.Fatalf("%s: %s", url, err.Error())
-				}
-			})
-
-			jsonRet := []string{}
-			i := 0
-			for vid := range vidChan {
-				if *json_ {
-					buffer, err := json.MarshalIndent(vid, "", "\t")
-					if err != nil {
-						log.Fatalf("%s: %s", url, err.Error())
-					}
-					jsonRet = append(jsonRet, string(buffer))
-					continue
-				}
-
-				filename, err := vid.Download(*folder)
-				if err != nil {
-					log.Fatalf("%s: %s", url, err.Error())
-				}
-				i += 1
-				log.Printf("%s: [%d/%d]\t %s", url, i, expectedCount, filename)
-			}
-
-			if *json_ {
-				fmt.Printf("[%s]", strings.Join(jsonRet, ",\n"))
-			}
-
-		case *cmd == "info":
-			vid, err := api.GetUserDetail(url)
-			if err != nil {
-				log.Fatalf("%s: %s", url, err.Error())
-			}
-
-			buffer, err := json.MarshalIndent(vid, "", "\t")
-			if err != nil {
-				log.Fatalf("%s: %s", url, err.Error())
-			}
-			print(string(buffer))
+			printf("%s: %s", url, filename)
 		}
+
 	}
+}
+
+var quiet = false
+
+func printf(format string, what ...interface{}) {
+	if quiet {
+		return
+	}
+	log.Printf(format, what...)
 }
 
 func ensureDir(dir string) {

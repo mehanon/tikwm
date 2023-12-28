@@ -1,4 +1,4 @@
-package api
+package tt
 
 type Post struct {
 	Id          string `json:"id"`
@@ -49,6 +49,14 @@ type Post struct {
 		Avatar   string `json:"avatar"`
 	} `json:"author"`
 	Images []string `json:"images"`
+}
+
+// ID is the simplest way to get video's id
+func (post Post) ID() string {
+	if post.Id != "" {
+		return post.Id
+	}
+	return post.VideoId
 }
 
 type UserFeed struct {

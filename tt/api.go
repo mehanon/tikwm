@@ -1,4 +1,4 @@
-package api
+package tt
 
 import (
 	"encoding/json"
@@ -20,11 +20,12 @@ var (
 )
 
 func Raw(method string, query map[string]string) ([]byte, error) {
-	requestSync.Lock()
-	defer unlock()
+	if Timeout != 0 {
+		requestSync.Lock()
+		defer unlock()
+	}
 
 	url := fmt.Sprintf("%s/%s", URL, method)
-
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -80,15 +81,17 @@ func RawParsed[T any](method string, query map[string]string) (*T, error) {
 	return resp.Data, nil
 }
 
-func GetPost(url string, hd bool) (*Post, error) {
+// GetPost (hd default: true)
+func GetPost(url string, hd ...bool) (*Post, error) {
 	query := map[string]string{"url": url}
-	if hd {
+	if len(hd) == 0 || hd[0] {
 		query["hd"] = "1"
 	}
 	return RawParsed[Post]("", query)
 }
 
-func GetUserFeed(uniqueID string, count int, cursor string) (*UserFeed, error) {
+// GetUserFeedRaw is almost unuseful by itself, check wrappers around it -- GetUserFeed/GetUserFeedAwait.
+func GetUserFeedRaw(uniqueID string, count int, cursor string) (*UserFeed, error) {
 	query := map[string]string{"unique_id": uniqueID, "count": strconv.Itoa(count), "cursor": cursor}
 	return RawParsed[UserFeed]("user/posts", query)
 }
