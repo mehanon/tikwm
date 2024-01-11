@@ -44,18 +44,20 @@ func ValidateWithFfprobe(ffprobe ...string) func(filename string) (bool, error) 
 	}
 }
 
-func (opt *DownloadOpt) downloadRetrying(post *Post, url string, filename string, try int, lastErr error) error {
+func (opt *DownloadOpt) downloadRetrying(post *Post, i int, filename string, try int, lastErr error) error {
 	if try > opt.Retries {
 		return lastErr
 	}
 
+	url := post.ContentUrls()[i]
 	ret := func(err error) error {
 		time.Sleep(opt.TimeoutOnError)
 		retry, retryErr := GetPost(post.ID())
 		if retryErr != nil {
-			return opt.downloadRetrying(retry, url, filename, try+1, retryErr)
+			return opt.downloadRetrying(retry, i, filename, try+1, retryErr)
 		}
-		return opt.downloadRetrying(retry, url, filename, try+1, err)
+		*post = *retry
+		return opt.downloadRetrying(retry, i, filename, try+1, err)
 	}
 
 	if err := opt.DownloadWith(url, filename); err != nil {
@@ -176,7 +178,7 @@ func (post Post) Download(opts ...DownloadOpt) (files []string, err error) {
 	urls := post.ContentUrls()
 
 	files = []string{}
-	for i, url := range urls {
+	for i, _ := range urls {
 		tmp, err := os.Create(path.Join(opt.Directory, FilenameFormat(&post, i)))
 		if err != nil {
 			return files, err
@@ -189,7 +191,7 @@ func (post Post) Download(opts ...DownloadOpt) (files []string, err error) {
 		if i > 0 {
 			time.Sleep(opt.Timeout)
 		}
-		if err := opt.downloadRetrying(&post, url, tmp.Name(), 0, nil); err != nil {
+		if err := opt.downloadRetrying(&post, i, tmp.Name(), 0, nil); err != nil {
 			return nil, err
 		}
 	}
