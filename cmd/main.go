@@ -66,7 +66,10 @@ func main() {
 					continue
 				}
 
-				filename, err := vid.Download(*directory)
+				filename, err := vid.Download(tt.DownloadOpt{
+					Directory:    *directory,
+					ValidateWith: tt.ValidateWithFfprobe(),
+				})
 				if err != nil {
 					log.Fatalf("%s: %s", url, err.Error())
 				}
@@ -105,7 +108,7 @@ func main() {
 				continue
 			}
 
-			filename, err := vid.Download(*directory)
+			filename, err := vid.Download(tt.DownloadOpt{Directory: *directory})
 			if err != nil {
 				log.Fatalf("%s: %s", url, err.Error())
 			}
